@@ -1,2 +1,2 @@
 # NDVM
-Network Dataset Valuation Metrics
+Network Dataset Evaluation Metrics
