@@ -2,11 +2,9 @@
     Network Dataset Evaluation Metrics Report
 """
 
-def Redundancy():
-    pass
+# Import requried modules
+# import ...
 
-def LabelAssociation():
-    pass
+if  __name__ == "__main__":
+    print("Running Dataset Report Evaluation")
 
-def ClassSimilarity():
-    pass
