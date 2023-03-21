@@ -2,5 +2,6 @@
     Dataset Redundacy Calculation
 """
 
-def Redundancy():
+
+def redundancy():
     pass

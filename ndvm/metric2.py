@@ -2,5 +2,6 @@
     Dataset Label Association Calculation
 """
 
-def LabelAssociation():
+
+def label_association():
     pass
