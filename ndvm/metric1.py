@@ -166,30 +166,4 @@ def Redundancy(dataset, label):
     pool.close()
     pool.join()
 
-    #pool.close() 
-    #print(results)
-
-    # version2
-    #print(">>>>",clfs_set.items())
-    #jobs = []
-    #for i in clfs_set.items():
-    #    p = Process(target=CalculateRedundancy, args=(X_1, y_1, i,))
-    #    jobs.append(p)
-    #    print("jobs",len(jobs))
-    #    p.start()
-
-    # version 3
-    #pool.map(CalculateRedundancy, range(10))
     return redundancy
-
-if __name__ == "__main__":
-    print("ahoj")
-    clfs_set = { 
-            #"DT": DecisionTreeClassifier(),
-            #"RF": RandomForestClassifier(),
-            "XGB": XGBClassifier(use_label_encoder=False, eval_metric="logloss"),
-    } 
-    for i in clfs_set.items():
-        a=i
-        name, ccc = a
-        print(name, ccc)

@@ -28,7 +28,7 @@ def printReport():
     }
     print(report)
 
-if  __name__ == "__main__":
+if __name__ == "__main__":
     print("Running Dataset Report Evaluation")
     parseConfig("config.yml")
     df_dataset = "sample_dataset/combined-doh-http.csv"
