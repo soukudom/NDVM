@@ -4,6 +4,7 @@
 
 # Import requried modules
 import metric1
+import metric3
 
 import yaml
 import pandas as pd
@@ -41,8 +42,12 @@ class DatasetMetrics:
         self.duplicated = df_dataset[df_dataset.drop(columns=["is_doh"]).duplicated()].shape[0]
 
         # Advanced metrics
-        print("Running Redundancy Metric ...")
-        self.redundancy = metric1.Redundancy(df_dataset,"is_doh")
+        print("Running Metric 1 - Redundancy ...")
+        # self.redundancy = metric1.Redundancy(df_dataset,"is_doh")
+        print("Running Metric 2 - Association ...")
+        self.association = metric2.label_association(df_dataset, "is_doh")
+        print("Running Metric 3 - Class Similarity ...")
+        self.similarity = metric3.class_similarity(df_dataset,df_dataset.drop(columns=["is_doh"]).columns, "is_doh")
 
     def getReport(self):
         report = {
