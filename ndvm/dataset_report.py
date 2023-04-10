@@ -4,11 +4,13 @@
 
 # Import requried modules
 import metric1
+import metric2
 import metric3
 
 import yaml
 import pandas as pd
 from pprint import pprint
+from collections import OrderedDict
 
 class DatasetMetrics:
 
@@ -43,20 +45,22 @@ class DatasetMetrics:
 
         # Advanced metrics
         print("Running Metric 1 - Redundancy ...")
-        # self.redundancy = metric1.Redundancy(df_dataset,"is_doh")
+        self.redundancy = metric1.Redundancy(df_dataset,"is_doh")
         print("Running Metric 2 - Association ...")
         self.association = metric2.label_association(df_dataset, "is_doh")
         print("Running Metric 3 - Class Similarity ...")
         self.similarity = metric3.class_similarity(df_dataset,df_dataset.drop(columns=["is_doh"]).columns, "is_doh")
 
     def getReport(self):
-        report = {
+        report = OrderedDict({
             "Classes": self.classes,
             "Samples": self.samples,
             "Features": self.features,
             "Duplicated Flows":  self.duplicated,
-            "Redundancy": self.redundancy
-        }
+            "Redundancy": self.redundancy,
+            "Association": self.association,
+            "Similarity": self.similarity
+        })
         return report
     #print(report)
 
