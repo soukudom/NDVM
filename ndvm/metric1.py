@@ -27,9 +27,10 @@ max_score = 0
 clfs_set = {}
 ds_redundancy = 0
 
-
-# Evaluate specific dataset redundancy for the specific fraction between train and test part
 def eval_dataset(X_1, y_1, frac, clfs):
+    """
+        Evaluate specific dataset redundancy for the specific fraction between train and test part
+    """
     global clfs_set
     global runs
 
@@ -46,9 +47,10 @@ def eval_dataset(X_1, y_1, frac, clfs):
         tmp_results[name][i].append(metrics.f1_score(y_test_sub, pred))
     return tmp_results
 
-
-# Calculate redundancy score for selected classificators
 def calculate_redundancy(X_1, y_1, max_score, clfs):
+    """
+        Calculate redundancy score for selected classificators
+    """
     global runs
     global alfa
 
@@ -83,9 +85,10 @@ def calculate_redundancy(X_1, y_1, max_score, clfs):
             low = tmp_redundancy
     return 1 - tmp_redundancy
 
-
-# Prepare X_1 and y_1 variables from the input dataset
 def prepare_dataset(dataset, label):
+    """
+        Prepare X_1 and y_1 variables from the input dataset
+    """
     global X_1
     global y_1
     dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -96,16 +99,18 @@ def prepare_dataset(dataset, label):
     y_1 = y_1.astype("category")
     y_1 = y_1.cat.codes
 
-
-# Get maximal redundancy across all models
 def collect_result(result):
+    """
+        Get maximal redundancy across all models
+    """
     global ds_redundancy
     ds_redundancy = max(result)
     return ds_redundancy
 
-
-# Get maximal dataset score to find redudancy
 def maximal_score(result):
+    """
+        Get maximal dataset score to find redudancy
+    """
     global max_score
     for item in result:
         tmp = max(list(item.values())[0])[0]
@@ -113,8 +118,10 @@ def maximal_score(result):
             max_score = tmp
 
 
-# Main method for computing the ds_redundancy metric
 def redundancy(dataset, label):
+    """
+        Main method for computing the ds_redundancy metric
+    """
     global MULTICLASS
     global runs
     global max_score

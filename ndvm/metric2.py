@@ -1,7 +1,6 @@
 """
     Dataset Label a Calculation
 """
-
 import warnings
 import weles as ws
 import pandas as pd
@@ -15,10 +14,6 @@ from multiprocessing import Pool, Process, Manager, current_process
 import yaml
 from yaml.loader import SafeLoader
 from pandas import read_csv
-
-# from progress.bar import Bar
-# from progressbar import progressbar
-# from progress.spinner import MoonSpinner
 import os
 import argparse
 import sys
@@ -50,54 +45,10 @@ class association:
         self.verbose = 0
         self.auc_score = 0
 
-    # Parse and load the configuration file
-    # TODO define additional values for static parameters - p-value treshold
-    # def loadConfig(self,configFile):
-    #    config = None
-    #    try:
-    #        with open(configFile) as f:
-    #            config = yaml.load(f, Loader=SafeLoader)
-    #    except Exception as err:
-    #        print()
-    #        print("Error: Unable to read the configuration file. Please check formating or file access.")
-    #        print("Full Error Message",err)
-    #        sys.exit(1)
-
-    #   self.filename = config["dataset"]
-    #   self.label = config["dataset_label"]
-    #   self.clfs = config["classifiers"]
-    #   self.eval_metrics = config["metrics"]
-    #   self.verbose = int(config["verbose_level"])
-    #   self.nperm = config["permutations"]
-    #   self.perc = config["percentages"]
-    #   self.delimiter = config["delimiter"]
-    #   self.cores = config["cores"]
-    #   self.output = config["output"]
-    #   self.save = config["save"]
-
-    #   # Disable debug messages for lower verbose levels (1,2)
-    #   if self.verbose <= 1:
-    #       np.seterr(all="ignore")
-    #       warnings.filterwarnings("ignore")
-    #       warnings.simplefilter('ignore', np.RankWarning)
-    # def checkOutput(self):
-    #    try:
-    #        isdir = os.path.isdir(self.output)
-    #        if isdir == False:
-    #            if self.verbose >= 1:
-    #                print("Unbable to find output directory. Creating a new one.")
-    #            os.mkdir(self.output)
-    #        else:
-    #            if self.verbose >= 1:
-    #                print("Output directory already exists. ")
-    #    except Exception as err:
-    #        print()
-    #        print("Error: Unable to create or access output directory in path",self.ouput)
-    #        print("Full Error Message",err)
-    #        sys.exit(2)
-
-    # Load dataset
     def load_dataset(self):
+        """
+            Load dataset
+        """
         try:
             self.y1 = self.raw_dataset[self.label]
             self.X1 = self.raw_dataset.drop(columns=[self.label])
@@ -110,9 +61,11 @@ class association:
 
         self.datasets = {"all": (self.X1, self.y1)}
 
-    # Initialize listed pool of classifiers
     # TODO handle unknown or duplicit models defined in configuration files
     def run_classifiers(self):
+        """
+            Initialize listed pool of classifiers
+        """
         from sklearn.neighbors import KNeighborsClassifier
         from sklearn.tree import DecisionTreeClassifier
         from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
@@ -135,8 +88,10 @@ class association:
             self.clfs_ver1.append({classifier: clfs_pool[classifier]})
             self.clfs_ver2[classifier] = clfs_pool[classifier]
 
-    # Initialize metrics and set true values
     def run_metrics(self):
+        """
+            Initialize metrics and set true values
+        """
         from sklearn.metrics import (
             precision_score,
             f1_score,
@@ -203,11 +158,12 @@ class association:
         for metric in self.eval_metrics:
             self.metrics[metric] = metrics_pool[metric]
 
-        # print(self.metrics)
         scores = self.ev.score(metrics=self.metrics)
 
-    # Run permutation tests to evalute the quality
     def permutation(self):
+        """
+            Run permutation tests to evalute the quality
+        """
         self.a = np.shape(self.ev.scores.mean(axis=2)[:, :, 0])  # true result
         self.perm = np.zeros((self.nperm, len(self.perc), self.a[1]))
         self.corr = np.zeros((self.nperm, len(self.perc)))
@@ -313,16 +269,20 @@ class association:
                     kk = np.corrcoef(y1P, self.y1)
                     self.corr[i, j] = kk[0, 1]
 
-    # Helper function for parallel processing
     def evaluate(self, classifier):
+        """
+            Helper function for parallel processing
+        """
         evP2 = ws.evaluation.Evaluator(datasets=self.datasetsP, protocol2=(False, 2, None)).process(
             clfs=classifier, verbose=0
         )
         scores = evP2.score(metrics=self.metrics)
         return evP2.scores.mean(axis=2)[:, :, 0][0]
 
-    # Generate output report files for dataset quality
     def print_results(self):
+        """
+            Generate output report files for dataset quality
+        """
         classifiers = ()
         for i in self.clfs_ver2:
             classifiers = classifiers + (i,)
@@ -380,8 +340,10 @@ class association:
             )
         self.auc_score = (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25
 
-    # Get dataset quality result
     def get_score(self):
+        """
+            Get dataset quality result
+        """
         classifiers = ()
         for i in self.clfs_ver2:
             classifiers = classifiers + (i,)
@@ -435,8 +397,10 @@ class association:
         score = self.auc_score
         return score  # {"Metric":score, "P-value":pv}
 
-    # Picle object with permuted evaluation data
     def save_results(self):
+        """
+            Picle object with permuted evaluation data
+        """
         try:
             with open(self.output + "/perqoda.obj", "wb") as f:
                 pickle.dump(self, f)
@@ -456,9 +420,10 @@ class association:
         self.print_results()
         return self.get_score()
 
-
-# Load picled object of with permuted evalution data
 def load_results(filename):
+    """
+        Load picled object of with permuted evalution data
+    """
     try:
         with open(filename, "rb") as f:
             qod = pickle.load(f)

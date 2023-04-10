@@ -33,6 +33,9 @@ class dataset_metrics:
                 print(err)
 
     def eval_metrics(self):
+        """
+            Main function to evaluate dataset metrics
+        """
         df_dataset = "sample_dataset/combined-doh-http.csv"
         df_dataset = pd.read_csv(df_dataset, delimiter=",")
         # Basic info
@@ -53,6 +56,9 @@ class dataset_metrics:
         self.similarity = metric3.class_similarity(df_dataset, df_dataset.drop(columns=["is_doh"]).columns, "is_doh")
 
     def get_report(self):
+        """
+            Get dataset report
+        """
         report = OrderedDict(
             {
                 "Classes": self.classes,
