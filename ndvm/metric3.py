@@ -6,7 +6,6 @@ import math
 import multiprocessing
 
 import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
 import torch
 from sklearn.preprocessing import MinMaxScaler
@@ -135,7 +134,7 @@ def train_ae(df, max_epochs):
 
 
 class SimpleAutoencoder(pl.LightningModule):
-    def __init__(self, input: int, hidden: list[int], latent: int):
+    def __init__(self, input, hidden, latent):
         """Simple autoencoder with linear layers and ReLU activations.
 
         Args:
