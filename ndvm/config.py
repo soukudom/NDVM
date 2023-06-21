@@ -7,9 +7,9 @@
 
 
 metric_config = [
-    'modules.metric1',
-    'modules.metric2',
-    'modules.metric3',
+    'modules.metric1.Redundancy',
+    'modules.metric2.Association',
+    'modules.metric3.Similarity',
 
     # custom modules
 ]
