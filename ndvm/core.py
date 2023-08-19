@@ -4,7 +4,7 @@ class AbstractMetric(ABC):
     """Abstract base class metric.
     """
 
-    def __init__(self):
+    def __init__(self,dataset,label,verbose):
         pass
 
     @abstractmethod

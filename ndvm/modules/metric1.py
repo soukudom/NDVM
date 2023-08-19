@@ -19,7 +19,7 @@ from multiprocessing import Process
 from core import AbstractMetric
 
 class Redundancy(AbstractMetric):
-    def __init__(self, dataset, label):
+    def __init__(self, dataset, label, verbose):
         self.runs = 5  # number of iterations
         self.alfa = 0.01  # Lift Value
         # Set if your dataset is multiclass or not
@@ -31,6 +31,7 @@ class Redundancy(AbstractMetric):
         self.ds_redundancy = 0
         self.dataset = dataset
         self.label = label
+        self.verbose = verbose
 
     def get_name(self):
         return "Redundancy"
@@ -74,7 +75,8 @@ class Redundancy(AbstractMetric):
             tmp_low = []
             name, clf = clfs
             tmp = []
-            print("Testing", name, max_score, high, low)
+            if self.verbose > 0:
+                print("Testing", name, max_score, high, low)
             for item in range(self.runs):
                 if (max_score - tmp_score[name][item][0]) < limit:
                     tmp.append(tmp_score[name][item][0])
@@ -146,7 +148,8 @@ class Redundancy(AbstractMetric):
         pool.close()
         pool.join()
 
-        print("found max score", self.max_score)
+        if self.verbose > 0:
+            print("found max score", self.max_score)
         # Find max dataset redundancy score in parallel
         pool = mp.Pool(len(self.clfs_set))
         pool.starmap_async(
