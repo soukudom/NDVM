@@ -23,11 +23,11 @@ from sklearn.metrics import auc
 
 
 class Association(AbstractMetric):
-    def __init__(self, dataset, label):
+    def __init__(self, dataset, label, verbose):
         self.raw_dataset = dataset
         self.label = label
         self.datasets = None
-        self.clfs = ["RF", "AB", "XGB"]
+        self.clfs = ["RF", "DT", "XGB"]
         self.clfs_ver1 = []
         self.clfs_ver2 = {}
         self.ev = None
@@ -43,7 +43,7 @@ class Association(AbstractMetric):
         self.nperm = 100
         self.output = None
         self.cores = 1
-        self.verbose = 1
+        self.verbose = verbose
         self.auc_score = 0
 
     def get_details(self):
@@ -57,10 +57,6 @@ class Association(AbstractMetric):
             Load dataset
         """
         try:
-            #self.raw_dataset.replace([np.inf, -np.inf], np.nan, inplace=True)
-            #self.raw_dataset = self.raw_dataset.dropna()
-            #self.raw_dataset.reset_index(inplace=True)
-
             self.y1 = self.raw_dataset[self.label]
             self.X1 = self.raw_dataset.drop(columns=[self.label])
             self.y1 = self.y1.astype('category')
