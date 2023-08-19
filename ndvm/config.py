@@ -4,8 +4,6 @@ metric_config = [
     'modules.metric1.Redundancy',
     #'modules.metric2.Association',
 #    'modules.metric3.Similarity',
-
-    # custom modules
 ]
 
 classes = 2
