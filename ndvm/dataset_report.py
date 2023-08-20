@@ -32,11 +32,8 @@ class dataset_metrics:
         self._metrics = []
         self.scores = {}
         self.verbose = 0
-        #self.dataset = None
-        #self.label = None
 
         self.cfg = __import__(self.filename)
-        #import  as cfg
 
     def create_metric(self, metric_path):
         """Imports metric class and creates metric object
@@ -59,7 +56,7 @@ class dataset_metrics:
         try:
             df_dataset = pd.read_csv(dataset, delimiter=self.cfg.delimiter)
         except Exception as e:
-            # TODO include ipfixprobe for pcap processing + add exceptin for unknow format
+            # TODO include ipfixprobe for pcap processing and FET + add exception for unknow format
             raise ValueError('Error: Non CSV input detected. Please include featuredaset in csv.')
         
         # Basic info
@@ -94,20 +91,18 @@ class dataset_metrics:
             print(df_dataset[df_dataset.isna().any(axis=1)].to_string(header=False))
         if self.cfg.delete_nan:
             df_dataset = df_dataset.dropna()
-       # self.nan = (sum(self.samples)) - len(df_dataset) - self.duplicated 
 
         # Get reduces dataset + sample dataset
         dataset_merge = pd.DataFrame()
         for key,item in df_dataset[label].value_counts().items():
             if item > self.cfg.sampling_limit:
                 df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
-                class_tmp = df_dataset[df_dataset[label]==key][:cfg.sampling_limit]
+                class_tmp = df_dataset[df_dataset[label]==key][:self.cfg.sampling_limit]
                 self.analyzed_samples.append(item)
             else:
                 self.analyzed_samples.append(item)
                 class_tmp = df_dataset[df_dataset[label]==key]
             dataset_merge = pd.concat([dataset_merge,class_tmp])
-            #print("dataset merge",len(dataset_merge))
             
         # Udelat merge
         df_dataset = pd.DataFrame(dataset_merge)
@@ -117,7 +112,7 @@ class dataset_metrics:
 
         # Advanced metrics
         for metric in self._metrics:
-            mx = metric(df_dataset, label, self.cfg.verbose)
+            mx = metric(df_dataset, label, self.cfg.multiclass, self.cfg.verbose)
             print("Running metric called",mx.get_name())
             score = mx.run_evaluation()
             self.scores[mx.get_name()] = score
@@ -131,7 +126,6 @@ class dataset_metrics:
             {
                 "Classes": self.classes,
                 "Original Samples": self.samples,
-                #"Cleared Samples": self.cleared_samples,
                 "Features": self.features,
                 "Duplicated Feature Vectors": self.duplicated,
                 "N/A Values": self.nan,

@@ -19,11 +19,11 @@ from multiprocessing import Process
 from core import AbstractMetric
 
 class Redundancy(AbstractMetric):
-    def __init__(self, dataset, label, verbose):
+    def __init__(self, dataset, label, multiclass, verbose):
         self.runs = 5  # number of iterations
         self.alfa = 0.01  # Lift Value
         # Set if your dataset is multiclass or not
-        self.MULTICLASS = False
+        self.MULTICLASS = multiclass
         self.X_1 = None
         self.y_1 = None
         self.max_score = 0
@@ -53,7 +53,7 @@ class Redundancy(AbstractMetric):
             )
             clf.fit(X_train_sub, y_train_sub)
             pred = clf.predict(X_test_sub)
-            tmp_results[name][i].append(metrics.f1_score(y_test_sub, pred))
+            tmp_results[name][i].append(metrics.f1_score(y_test_sub, pred,average="weighted"))
         return tmp_results
 
     def calculate_redundancy(self, X_1, y_1, max_score, clfs):

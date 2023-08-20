@@ -2,13 +2,14 @@
 
 metric_config = [
     'modules.metric1.Redundancy',
-    #'modules.metric2.Association',
-#    'modules.metric3.Similarity',
+    'modules.metric2.Association',
+    #'modules.metric3.Similarity',
 ]
 
 classes = 2
-sampling_limit = 20000
+sampling_limit = 5000
 delimiter = ","
 delete_nan = True
 delete_duplicated = True
 verbose = 1
+multiclass = False

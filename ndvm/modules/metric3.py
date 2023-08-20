@@ -15,10 +15,11 @@ from torch.nn import functional as F
 from core import AbstractMetric
 
 class Similarity(AbstractMetric):
-    def __init__(self, dataset, label, verbose):
+    def __init__(self, dataset, label, multiclass, verbose):
         self.dataset = dataset
         self.label = label
         self.verbose = verbose
+        self.MULTICLASS = multiclass
 
     def get_name(self):
         return "Similarity"

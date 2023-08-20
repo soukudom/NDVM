@@ -23,7 +23,7 @@ from sklearn.metrics import auc
 
 
 class Association(AbstractMetric):
-    def __init__(self, dataset, label, verbose):
+    def __init__(self, dataset, label, multiclass, verbose):
         self.raw_dataset = dataset
         self.label = label
         self.datasets = None
@@ -45,6 +45,8 @@ class Association(AbstractMetric):
         self.cores = 1
         self.verbose = verbose
         self.auc_score = 0
+        self.MULTICLASS = multiclass
+        self.max_clf_metric_score = 0
 
     def get_details(self):
         pass
@@ -82,16 +84,30 @@ class Association(AbstractMetric):
         from sklearn.neural_network import MLPClassifier
 
         # Pool of available models for selected pool of classifiers
-        clfs_pool = {
-            "KNN": KNeighborsClassifier(),
-            "DT": DecisionTreeClassifier(),
-            "RF": RandomForestClassifier(),
-            "MLP": MLPClassifier(
-                hidden_layer_sizes=(80, 100), activation="relu", batch_size=20, max_iter=200, verbose=0
-            ),
-            "AB": AdaBoostClassifier(),
-            "XGB": XGBClassifier(eval_metric="logloss"),
-        }
+        if self.MULTICLASS:
+            clfs_pool = {
+                #"KNN": KNeighborsClassifier(),
+                "DT": DecisionTreeClassifier(criterion="gini"),
+                "RF": RandomForestClassifier(class_weight="balanced", criterion="gini"),
+                #"MLP": MLPClassifier(
+                #    hidden_layer_sizes=(80, 100), activation="relu", batch_size=20, max_iter=200, verbose=0
+                #),
+                #"AB": AdaBoostClassifier(),
+                "XGB": XGBClassifier(objective="multi:softmax"),
+            }
+
+        else:
+            clfs_pool = {
+                "KNN": KNeighborsClassifier(),
+                "DT": DecisionTreeClassifier(),
+                "RF": RandomForestClassifier(),
+                "MLP": MLPClassifier(
+                    hidden_layer_sizes=(80, 100), activation="relu", batch_size=20, max_iter=200, verbose=0
+                ),
+                "AB": AdaBoostClassifier(),
+                "XGB": XGBClassifier(eval_metric="logloss")
+            }
+
 
         for classifier in self.clfs:
             self.clfs_ver1.append({classifier: clfs_pool[classifier]})
@@ -187,13 +203,23 @@ class Association(AbstractMetric):
                             print("Iteration", i + j, "/", len(self.perc) * self.nperm)
                         t = 0
                         while True:
-                            ind1 = np.where(self.y1 == 0)
-                            ind2 = np.where(self.y1 == 1)
+                            ind_pool = {}
+                            nperc_pool = {}
+                            for item in range(len(self.y1.value_counts())):
+                                ind_pool[item] = np.where(self.y1 == item)
+                                nperc_pool[item] = round(self.perc[j] * len(ind_pool[item][0]) / 100)
+                            
+                            tmp_list = []
+                            for item in range(len(self.y1.value_counts())):
+                                tmp_list.append(ind_pool[item][0][:nperc_pool[item]])
+                            indP = np.random.permutation(np.concatenate(tmp_list))
+                            #ind1 = np.where(self.y1 == 0)
+                            #ind2 = np.where(self.y1 == 1)
 
-                            nperc1 = round(self.perc[j] * len(ind1[0]) / 100)
-                            nperc2 = round(self.perc[j] * len(ind2[0]) / 100)
+                            #nperc1 = round(self.perc[j] * len(ind1[0]) / 100)
+                            #nperc2 = round(self.perc[j] * len(ind2[0]) / 100)
 
-                            indP = np.random.permutation(np.concatenate((ind1[0][:nperc1], ind2[0][:nperc2])))
+                            #indP = np.random.permutation(np.concatenate((ind1[0][:nperc1], ind2[0][:nperc2])))
                             ind = np.sort(indP)
 
                             y1P = np.copy(self.y1)
@@ -237,13 +263,24 @@ class Association(AbstractMetric):
                         print("Iteration", cnt, "/", len(self.perc) * self.nperm)
                     t = 0
                     while True:
-                        ind1 = np.where(self.y1 == 0)
-                        ind2 = np.where(self.y1 == 1)
+                        ind_pool = {}
+                        nperc_pool = {}
+                        for item in range(len(self.y1.value_counts())):
+                            ind_pool[item] = np.where(self.y1 == item)
+                            nperc_pool[item] = round(self.perc[j] * len(ind_pool[item][0]) / 100)
+                            
+                        tmp_list = []
+                        for item in range(len(self.y1.value_counts())):
+                            tmp_list.append(ind_pool[item][0][:nperc_pool[item]])
+                        indP = np.random.permutation(np.concatenate(tmp_list))
+                        
+                        #ind1 = np.where(self.y1 == 0)
+                        #ind2 = np.where(self.y1 == 1)
 
-                        nperc1 = round(self.perc[j] * len(ind1[0]) / 100)
-                        nperc2 = round(self.perc[j] * len(ind2[0]) / 100)
+                        #nperc1 = round(self.perc[j] * len(ind1[0]) / 100)
+                        #nperc2 = round(self.perc[j] * len(ind2[0]) / 100)
 
-                        indP = np.random.permutation(np.concatenate((ind1[0][:nperc1], ind2[0][:nperc2])))
+                        #indP = np.random.permutation(np.concatenate((ind1[0][:nperc1], ind2[0][:nperc2])))
                         ind = np.sort(indP)
 
                         y1P = np.copy(self.y1)
@@ -347,6 +384,7 @@ class Association(AbstractMetric):
                 (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25,
             )
         self.auc_score = (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25
+        self.max_clf_metric_score = max_perm[-1]
 
     def get_score(self):
         """
@@ -403,7 +441,8 @@ class Association(AbstractMetric):
         # score = {"qod":status,"slope":np.max(abs(slopes))}
         # self.auc_score = (0.5-auc(cor,max_perm)/max_perm[-1])/0.125
         score = self.auc_score
-        return score  # {"Metric":score, "P-value":pv}
+        final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status}
+        return final_result  # {"Metric":score, "P-value":pv}
 
     def save_results(self):
         """
