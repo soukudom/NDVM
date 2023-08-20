@@ -47,11 +47,10 @@ This is the main file that allows you to start the dataset evaluation. From the 
 
 ### Typical Issues 
 1. Wrong dataset format: You select a dataset that includes raw data (string, list, binary, ...). This tool requires a feature dataset that can be used with ML classifiers. 
-2. Wrong configuration: You select the wrong delimiter or configure the wrong path 
-3. Too big number: Some advanced metrics have higher computation complexity. For dataset evaluation, we typically don't need a complete dataset but just a sample. For the initial evaluation, it is recommended to start with ~10 0000 - 20 0000 samples per class. 
+2. Wrong configuration: You select the wrong delimiter, configure the wrong path, select binary evalution for multiclass taks, etc.
+3. Too big number: Some advanced metrics have higher computation complexity. For dataset evaluation, we typically don't need a complete dataset but just a sample. For the initial evaluation, it is recommended to start with ~5 0000 - 20 0000 samples per class. 
 
 ### Near Future Work
-* Full expansion for binary and multiclass task
 * Ability to preprocess some raw dataset format (pcap, pstats)
 * Remove weles dependency
 * Enable automatic configuration parameters tuning
