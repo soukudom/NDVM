@@ -22,11 +22,14 @@ Since this metric represents average relative reconstruction error over all inst
 ## Installation 
 Clone this repo
 * git clone https://github.com/soukudom/NDVM.git
+
 Create virtual environemnt
 * python3 -m venv venv
 * . ./venv/bin/activate 
+
 Install required python modules
 * pip3 install -r requirements.txt
+
 Run example
 * python3 dataset_report.py
 
