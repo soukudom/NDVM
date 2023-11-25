@@ -11,7 +11,9 @@ from collections import OrderedDict
 import numpy as np
 import core
 from importlib import import_module
-from datetime import date
+from datetime import date, datetime
+import time
+import argparse
 
 # TODO
 # - add more hidden data values that are used for metric calculation (f1 score, ..) -> good for metrics troubleshooting
@@ -138,12 +140,78 @@ class dataset_metrics:
             report[key] = item
         return report
 
+def sync(host):
+    for host in hosts:
+        host = host.strip()
+        dest = os.path.join(DEST_DIR, host)
+        cmd = f"rsync -e 'ssh -o StrictHostKeyChecking=no' -auPz {exclude} {RSYNC_USER}@{host}:{src} {dest}/"
+        p = subprocess.Popen(cmd, shell=True)
+        p.wait()
+        yield f"{cmd} Rsync process completed."
 
 if __name__ == "__main__":
-    print("Running Dataset Report Evaluation")
-    dm = dataset_metrics("config")
-    dm.load_metrics()
-    dm.eval_metrics("sample_dataset/combined-doh-http.csv","is_doh")
-    report = dm.get_report()
-    pprint(report)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s",
+                        "--server",
+                        default="localhost")
+    parser.add_argument('--verbose',
+                        '-v', action='count',
+                        default=0)
+    parser.add_argument("--config",
+                        "-c",
+                        default="config")
+    parser.add_argument("--dataset",
+                        "-d",
+                        required=True)
+    parser.add_argument("--label",
+                        "-l",
+                        required=True)
+    parser.add_argument("--outputDir",
+                        "-o",
+                        default=".")
+    parser.add_argument("--name",
+                        "-n",
+                        default="dataset")
+    parser.add_argument("--remoteDir",
+                        "-rd",
+                        default=None)
+    args = parser.parse_args()
+    input_data  = vars(args)
+    # Generate timestamp of the report
+    dt = datetime.today()  
+    seconds = int(dt.timestamp())
+
+    # run metacentrum
+    if input_data["server"] == "metacentrum":
+        pass
+    # run locally
+    elif input_data["server"] == "localhost":
+        
+        dm = dataset_metrics(input_data["config"])
+        if dm.verbose >= 1:
+            print("Running Dataset Report Evaluation")
+        dm.load_metrics()
+        dm.eval_metrics(input_data["dataset"],input_data["label"])
+        report = dm.get_report()
+        try:
+            output_file = input_data["outputDir"]+"/"+"report-"+input_data["name"]+"-"+str(seconds)+".csv"
+            with open(output_file, "w") as log_file:
+                pprint(dict(report), log_file)
+        except Exception as e:
+            raise ValueError("Error with output file. Wrong path or enough privileges.")
+    # run 3rd party server
+    else:
+        if input_data["remoteDir"] == None:
+            raise ValueError('Please define remote path with NDVM directory using "remoteDir" argument')
+        # rsync files to remote server
+        # run remote process
+        # reqularly check
+        raise ValueError('Unknown option for target server argument. Please select one of the following options: localhost, metacentrum, <ip-address>. If you used <ip-address> for remote server it is possible that the connection is not possible or the IP address is wrong.')
+
+        
+
+    
+
+
+    
 
