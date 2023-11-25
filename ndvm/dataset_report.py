@@ -12,14 +12,18 @@ import numpy as np
 import core
 from importlib import import_module
 from datetime import date, datetime
+import subprocess
 import time
 import argparse
+import sys
+import paramiko
 
 # TODO
 # - add more hidden data values that are used for metric calculation (f1 score, ..) -> good for metrics troubleshooting
 class dataset_metrics:
-    def __init__(self, filename):
+    def __init__(self, sourceDir, filename):
         self.filename = filename
+        self.sourceDir = sourceDir
         self.classes = None
         self.samples = []
         self.cleared_samples = []
@@ -35,6 +39,7 @@ class dataset_metrics:
         self.scores = {}
         self.verbose = 0
 
+        sys.path.append(self.sourceDir)
         self.cfg = __import__(self.filename)
 
     def create_metric(self, metric_path):
@@ -140,14 +145,25 @@ class dataset_metrics:
             report[key] = item
         return report
 
-def sync(host):
-    for host in hosts:
-        host = host.strip()
-        dest = os.path.join(DEST_DIR, host)
-        cmd = f"rsync -e 'ssh -o StrictHostKeyChecking=no' -auPz {exclude} {RSYNC_USER}@{host}:{src} {dest}/"
+    def sync(self,host,rsync_username,sourceDir,remoteDir):
+        cmd = f"rsync -rz {sourceDir} {rsync_username}@{host}:{remoteDir}"
+        # TODO implement two way sync
         p = subprocess.Popen(cmd, shell=True)
         p.wait()
-        yield f"{cmd} Rsync process completed."
+        if p.returncode != 0:
+            raise ValueError("Error during rsync command.")
+
+    def run_remote(self,host,username,remoteDir, dataset, label):
+        client = paramiko.SSHClient()
+        try:
+            client.connect(hostname=host, username=username)
+        except:
+            print("[!] Cannot connect to the SSH Server")
+        client.exec_command(f"cd {remoteDir}")
+        client.exec_command(f". ./venv/bin/activate")
+        # TODO need to solve remote paths
+        client.exec_command(f"nohup python3.9 dataset_report.py -d {dataset} -l {label} -s localhost -sd &")
+        cmd = f"nohup python3.9  &"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -175,6 +191,12 @@ if __name__ == "__main__":
     parser.add_argument("--remoteDir",
                         "-rd",
                         default=None)
+    parser.add_argument("--sourceDir",
+                        "-sd",
+                        default=".")
+    parser.add_argument("--rsyncUsername",
+                        "-u",
+                        default=None)
     args = parser.parse_args()
     input_data  = vars(args)
     # Generate timestamp of the report
@@ -187,7 +209,7 @@ if __name__ == "__main__":
     # run locally
     elif input_data["server"] == "localhost":
         
-        dm = dataset_metrics(input_data["config"])
+        dm = dataset_metrics(input_data["sourceDir"],input_data["config"])
         if dm.verbose >= 1:
             print("Running Dataset Report Evaluation")
         dm.load_metrics()
@@ -201,17 +223,15 @@ if __name__ == "__main__":
             raise ValueError("Error with output file. Wrong path or enough privileges.")
     # run 3rd party server
     else:
-        if input_data["remoteDir"] == None:
+        if input_data["remoteDir"] == None or input_data["rsyncUsername"] == None:
             raise ValueError('Please define remote path with NDVM directory using "remoteDir" argument')
         # rsync files to remote server
+        dm = dataset_metrics(input_data["sourceDir"],input_data["config"])
+        dm.sync(input_data["server"], input_data["rsyncUsername"], input_data["sourceDir"], input_data["remoteDir"])
         # run remote process
         # reqularly check
-        raise ValueError('Unknown option for target server argument. Please select one of the following options: localhost, metacentrum, <ip-address>. If you used <ip-address> for remote server it is possible that the connection is not possible or the IP address is wrong.')
 
         
-
-    
-
 
     
 
