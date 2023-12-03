@@ -182,7 +182,7 @@ if __name__ == "__main__":
                         default=0)
     parser.add_argument("--config",
                         "-c",
-                        default="config")
+                        default="config.yml")
     parser.add_argument("--dataset",
                         "-d",
                         required=True)
@@ -192,8 +192,8 @@ if __name__ == "__main__":
     parser.add_argument("--outputDir",
                         "-o",
                         default=".")
-    parser.add_argument("--name",
-                        "-n",
+    parser.add_argument("--taskName",
+                        "-tn",
                         default="dataset")
     parser.add_argument("--remoteDir",
                         "-rd",
@@ -223,7 +223,7 @@ if __name__ == "__main__":
         dm.eval_metrics(input_data["dataset"],input_data["label"])
         report = dm.get_report()
         try:
-            output_file = input_data["outputDir"]+"/"+"report-"+input_data["name"]+"-"+str(seconds)+".csv"
+            output_file = input_data["outputDir"]+"/"+"report-"+input_data["taskName"]+"-"+str(seconds)+".csv"
             with open(output_file, "w") as log_file:
                 pprint(dict(report), log_file)
         except Exception as e:
