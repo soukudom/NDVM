@@ -17,6 +17,7 @@ import time
 import argparse
 import sys
 import paramiko
+import yaml
 
 # TODO
 # - add more hidden data values that are used for metric calculation (f1 score, ..) -> good for metrics troubleshooting
@@ -25,6 +26,7 @@ class dataset_metrics:
         self.filename = filename
         self.sourceDir = sourceDir
         self.classes = None
+        self.multiclass = None
         self.samples = []
         self.cleared_samples = []
         self.analyzed_samples = []
@@ -39,8 +41,11 @@ class dataset_metrics:
         self.scores = {}
         self.verbose = 0
 
-        sys.path.append(self.sourceDir)
-        self.cfg = __import__(self.filename)
+        with open(sourceDir+"/"+filename, "r") as stream:
+            try:
+                self.cfg = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                raise("YAML Parsing Error",exc)
 
     def create_metric(self, metric_path):
         """Imports metric class and creates metric object
@@ -52,7 +57,7 @@ class dataset_metrics:
         
     def load_metrics(self):
         """Loader of metrics."""
-        for metric_path in self.cfg.metric_config:
+        for metric_path in self.cfg["metric_config"]:
             metric = self.create_metric(metric_path)
             self._metrics.append(metric)
 
@@ -61,7 +66,7 @@ class dataset_metrics:
             Main function to evaluate dataset metrics
         """
         try:
-            df_dataset = pd.read_csv(dataset, delimiter=self.cfg.delimiter)
+            df_dataset = pd.read_csv(dataset, delimiter=self.cfg["delimiter"])
         except Exception as e:
             # TODO include ipfixprobe for pcap processing and FET + add exception for unknow format
             raise ValueError('Error: Non CSV input detected. Please include featuredaset in csv.')
@@ -69,8 +74,10 @@ class dataset_metrics:
         # Basic info
         ## Get number of classes
         self.classes = len(df_dataset[label].value_counts())
-        if self.classes != self.cfg.classes:
-            raise ValueError('Error: Mismatch between input number of classes and detected.')
+        if self.classes > 2:
+            self.multiclass = True
+        #if self.classes != self.cfg["classes"]:
+        #    raise ValueError('Error: Mismatch between input number of classes and detected.')
 
         ## Get amount of samples
         for item in df_dataset[label].value_counts():
@@ -86,7 +93,7 @@ class dataset_metrics:
         if self.verbose >= 2 & self.duplicated > 0:
             print("Duplicated rows (Note: index is +1)")
             print(df_dataset[df_dataset.duplicated()].to_string(header=False))
-        if self.cfg.delete_duplicated:
+        if self.cfg["delete_duplicated"]:
             df_dataset.drop_duplicates(inplace=True)
 
         ## Remove nan values
@@ -96,15 +103,15 @@ class dataset_metrics:
         if self.verbose >= 2:
             print("N/A rows (Note: index is +1)")
             print(df_dataset[df_dataset.isna().any(axis=1)].to_string(header=False))
-        if self.cfg.delete_nan:
+        if self.cfg["delete_nan"]:
             df_dataset = df_dataset.dropna()
 
         # Get reduces dataset + sample dataset
         dataset_merge = pd.DataFrame()
         for key,item in df_dataset[label].value_counts().items():
-            if item > self.cfg.sampling_limit:
+            if item > self.cfg["sampling_limit"]:
                 df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
-                class_tmp = df_dataset[df_dataset[label]==key][:self.cfg.sampling_limit]
+                class_tmp = df_dataset[df_dataset[label]==key][:self.cfg["sampling_limit"]]
                 self.analyzed_samples.append(item)
             else:
                 self.analyzed_samples.append(item)
@@ -119,7 +126,7 @@ class dataset_metrics:
 
         # Advanced metrics
         for metric in self._metrics:
-            mx = metric(df_dataset, label, self.cfg.multiclass, self.cfg.verbose)
+            mx = metric(df_dataset, label, self.multiclass, self.cfg["verbose"])
             print("Running metric called",mx.get_name())
             score = mx.run_evaluation()
             self.scores[mx.get_name()] = score
@@ -136,7 +143,7 @@ class dataset_metrics:
                 "Features": self.features,
                 "Duplicated Feature Vectors": self.duplicated,
                 "N/A Values": self.nan,
-                "Sampling Limit": self.cfg.sampling_limit,
+                "Sampling Limit": self.cfg["sampling_limit"],
                 "Analyzed Samples": self.analyzed_samples,
                 "Date": date.today().strftime("%m/%d/%y")
             }
