@@ -152,25 +152,73 @@ class dataset_metrics:
             report[key] = item
         return report
 
-    def sync(self,host,rsync_username,sourceDir,remoteDir):
-        cmd = f"rsync -rz {sourceDir} {rsync_username}@{host}:{remoteDir}"
-        # TODO implement two way sync
-        p = subprocess.Popen(cmd, shell=True)
-        p.wait()
-        if p.returncode != 0:
-            raise ValueError("Error during rsync command.")
-
-    def run_remote(self,host,username,remoteDir, dataset, label):
+    def init_sync(self, host, username, remoteDir, dataset):
         client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        try:
+            client.connect(hostname=host, username=username)
+        except Exception as e:
+            print("[!] Cannot connect to the SSH Server")
+            print("Error",e)
+
+        # Copy config directory and dataset to remote server
+        cmds = [f"rsync -rz {self.sourceDir+'/'+self.filename} {username}@{host}:{remoteDir+'/tmp/'}", f"rsync -rz {dataset} {username}@{host}:{remoteDir+'/tmp/'}"]
+        for cmd in cmds:
+            print("running cmd",cmd)
+            p = subprocess.Popen(cmd, shell=True)
+            p.wait()
+            if p.returncode != 0:
+                raise ValueError("Error during rsync command.")
+
+    def run_remote(self,host,username,remoteDir,dataset, label):
+        # Run the experiment
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        try:
+            print("cnnection to",host,username,remoteDir)
+            client.connect(hostname=host, username=username)
+        except:
+            print("[!] Cannot connect to the SSH Server")
+        client.exec_command(f"cd {remoteDir}; . ./venv/bin/activate")
+        tmp = f"nohup python3.9 dataset_report.py -d {dataset} -l {label} -s localhost -sd ./tmp/ -c {self.filename} -o ./tmp/ >tmp/ot.log 2>&1 &"
+        client.exec_command(f"cd {remoteDir}; echo '. ./venv/bin/activate' > tmp.sh")
+        client.exec_command(f"cd {remoteDir}; echo '{tmp}' >> tmp.sh")
+        client.exec_command(f"cd {remoteDir}; /bin/bash tmp.sh")
+
+    def poll_remote_resutls(self, host, username, remoteDir, outputDir):
+        exit_flag = None
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        try:
+            client.connect(hostname=host, username=username)
+        except Exception as e:
+            print("[!] Cannot connect to the SSH Server")
+            print("Error",e)
+        stdin, stdout, stderr = client.exec_command(f"cd {remoteDir}; ls tmp/ | grep report-*")
+        output = stdout.readlines()
+        if len(output) == 1:
+            exit_flag = True
+        else:
+            exit_flag = False
+        # Copy config directory and dataset to remote server
+        cmds = [f"rsync -z {username}@{host}:{remoteDir+'/tmp/report*'} {outputDir}"]
+        for cmd in cmds:
+            p = subprocess.Popen(cmd, shell=True)
+            p.wait()
+            if p.returncode != 0:
+                raise ValueError("Error during rsync command.")
+        return exit_flag
+
+    def clean_remote(self, host, username, remoteDir, dataset):
+        # clean input files (config and dataset)
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
         try:
             client.connect(hostname=host, username=username)
         except:
             print("[!] Cannot connect to the SSH Server")
-        client.exec_command(f"cd {remoteDir}")
-        client.exec_command(f". ./venv/bin/activate")
-        # TODO need to solve remote paths
-        client.exec_command(f"nohup python3.9 dataset_report.py -d {dataset} -l {label} -s localhost -sd &")
-        cmd = f"nohup python3.9  &"
+        client.exec_command(f"cd {remoteDir}; rm -r tmp/; rm tmp.sh")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -234,9 +282,15 @@ if __name__ == "__main__":
             raise ValueError('Please define remote path with NDVM directory using "remoteDir" argument')
         # rsync files to remote server
         dm = dataset_metrics(input_data["sourceDir"],input_data["config"])
-        dm.sync(input_data["server"], input_data["rsyncUsername"], input_data["sourceDir"], input_data["remoteDir"])
+        dm.sync(input_data["server"], input_data["rsyncUsername"], input_data["remoteDir"], input_data["dataset"])
         # run remote process
+        dm.run_remote(input_data["server"], input_data["rsyncUsername"], input_data["remoteDir"], input_data["dataset"], input_data["label"])
         # reqularly check
+        white True:
+            dm.poll_remote_resutls(input_data["server"], input_data["rsyncUsername"], input_data["remoteDir"],input_data["outputDir"])
+            sleep(600)
+        dm.clean_remote(input_data["server"], input_data["rsyncUsername"], input_data["remoteDir"], input_data["dataset"])
+        print("Dataset Evaluation Done!")
 
         
 
