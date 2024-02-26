@@ -65,11 +65,14 @@ class dataset_metrics:
         """
             Main function to evaluate dataset metrics
         """
-        try:
-            df_dataset = pd.read_csv(dataset, delimiter=self.cfg["delimiter"])
-        except Exception as e:
-            # TODO include ipfixprobe for pcap processing and FET + add exception for unknow format
-            raise ValueError('Error: Non CSV input detected. Please include featuredaset in csv.')
+        if type(dataset) == type(pd.DataFrame()):
+            df_dataset = dataset
+        elif type(dataset) == type(""):
+            try:
+                df_dataset = pd.read_csv(dataset, delimiter=self.cfg["delimiter"])
+            except Exception as e:
+                # TODO include ipfixprobe for pcap processing and FET + add exception for unknow format
+                raise ValueError('Error: Non CSV input detected. Please include featuredaset in csv.')
         
         # Basic info
         ## Get number of classes
@@ -127,7 +130,8 @@ class dataset_metrics:
         # Advanced metrics
         for metric in self._metrics:
             mx = metric(df_dataset, label, self.multiclass, self.cfg["verbose"])
-            print("Running metric called",mx.get_name())
+            if self.cfg["verbose"] >= 1: 
+                print("Running metric called",mx.get_name())
             score = mx.run_evaluation()
             self.scores[mx.get_name()] = score
         

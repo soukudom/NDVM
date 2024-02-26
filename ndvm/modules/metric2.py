@@ -47,6 +47,8 @@ class Association(AbstractMetric):
         self.auc_score = 0
         self.MULTICLASS = multiclass
         self.max_clf_metric_score = 0
+        self.raw_slope = 0
+        self.raw_auc = 0
 
     def get_details(self):
         pass
@@ -199,7 +201,7 @@ class Association(AbstractMetric):
             with Bar("Evaluating Dataset Quality...", max=self.nperm * len(self.perc)) as bar:
                 for i in range(self.nperm):
                     for j in range(len(self.perc)):
-                        if self.verbose >= 0:
+                        if self.verbose >= 1:
                             print("Iteration", i + j, "/", len(self.perc) * self.nperm)
                         t = 0
                         while True:
@@ -258,7 +260,7 @@ class Association(AbstractMetric):
             cnt = 0
             for i in range(self.nperm):
                 for j in range(len(self.perc)):
-                    if self.verbose >= 0:
+                    if self.verbose >= 1:
                         cnt += 1
                         print("Iteration", cnt, "/", len(self.perc) * self.nperm)
                     t = 0
@@ -364,7 +366,8 @@ class Association(AbstractMetric):
             per = np.mean(self.perm[:, :, i], axis=0)
             auc_score = auc(cor, per)
             slope, intercept = np.polyfit(cor, per, 1)
-            print(names[i], "=", slope)
+            if self.verbose >= 1:
+                print(names[i], "=", slope)
             slopes = np.append(slopes, slope)
             auc_scores = np.append(auc_scores, auc_score)
 
@@ -383,6 +386,8 @@ class Association(AbstractMetric):
                 "- Final Metric:",
                 (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25,
             )
+        self.raw_slope = np.max(abs(slopes))
+        self.raw_auc = auc(cor, max_perm)
         self.auc_score = (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25
         self.max_clf_metric_score = max_perm[-1]
 
@@ -441,7 +446,7 @@ class Association(AbstractMetric):
         # score = {"qod":status,"slope":np.max(abs(slopes))}
         # self.auc_score = (0.5-auc(cor,max_perm)/max_perm[-1])/0.125
         score = self.auc_score
-        final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status}
+        final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status, "Raw Slope":self.raw_slope, "Raw AUC":self.raw_auc}
         return final_result  # {"Metric":score, "P-value":pv}
 
     def save_results(self):
