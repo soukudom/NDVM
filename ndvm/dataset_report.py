@@ -5,6 +5,7 @@
 # Import requried modules
 
 import yaml
+import json
 import pandas as pd
 from pprint import pprint
 from collections import OrderedDict
@@ -19,6 +20,17 @@ import sys
 import paramiko
 import yaml
 
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
 # TODO
 # - add more hidden data values that are used for metric calculation (f1 score, ..) -> good for metrics troubleshooting
 class dataset_metrics:
@@ -29,7 +41,7 @@ class dataset_metrics:
         self.multiclass = None
         self.samples = []
         self.cleared_samples = []
-        self.analyzed_samples = []
+        self.analyzed_samples = {}
         self.labels = []
         self.features = None
         self.duplicated = None
@@ -83,15 +95,20 @@ class dataset_metrics:
         #    raise ValueError('Error: Mismatch between input number of classes and detected.')
 
         ## Get amount of samples
-        for item in df_dataset[label].value_counts():
-            self.samples.append(item)
+        #self.samples = dict(df_dataset[label].value_counts())
+        self.samples = {str(k): v for k, v in dict(df_dataset[label].value_counts()).items()}
+        #for item in df_dataset[label].value_counts():
+        #    self.samples.append(item)
         ## Get labels
         for item in df_dataset[label].value_counts().index.tolist():
             self.labels.append(item)
         ## Get amount of features
         self.features = len(df_dataset.drop(columns=[label]).columns)
+        ## Get list of features
+        self.feature_list = dict(zip(df_dataset.columns, [''] * len(df_dataset.columns)))
         ## Get amount of duplicated samples
         self.duplicated = len(df_dataset[df_dataset.duplicated])
+        #self.duplicated = 10
         ### print duplicated rows
         if self.verbose >= 2 & self.duplicated > 0:
             print("Duplicated rows (Note: index is +1)")
@@ -109,15 +126,17 @@ class dataset_metrics:
         if self.cfg["delete_nan"]:
             df_dataset = df_dataset.dropna()
 
-        # Get reduces dataset + sample dataset
+        # Get reduced dataset + sample dataset
         dataset_merge = pd.DataFrame()
         for key,item in df_dataset[label].value_counts().items():
             if item > self.cfg["sampling_limit"]:
                 df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
                 class_tmp = df_dataset[df_dataset[label]==key][:self.cfg["sampling_limit"]]
-                self.analyzed_samples.append(item)
+                #self.analyzed_samples.append(item)
+                self.analyzed_samples[str(key)] = item
             else:
-                self.analyzed_samples.append(item)
+                #self.analyzed_samples.append(item)
+                self.analyzed_samples[str(key)] = item
                 class_tmp = df_dataset[df_dataset[label]==key]
             dataset_merge = pd.concat([dataset_merge,class_tmp])
             
@@ -126,6 +145,11 @@ class dataset_metrics:
         df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
         df_dataset.reset_index(inplace=True)
         df_dataset = df_dataset.drop(columns=['index'])
+
+        n = 10
+        value_counts = df_dataset[label].value_counts()
+        frequent_categories = value_counts[value_counts > n].index
+        df_dataset = df_dataset[df_dataset[label].isin(frequent_categories)]
 
         # Advanced metrics
         for metric in self._metrics:
@@ -143,9 +167,10 @@ class dataset_metrics:
         report = OrderedDict(
             {
                 "Classes": self.classes,
+                "Feature List": self.feature_list, #dict(zip(df_dataset.columns, [''] * len(df_dataset.columns))),
                 "Original Samples": self.samples,
                 "Features": self.features,
-                "Duplicated Feature Vectors": self.duplicated,
+                "Duplicated Feature Vectors": int(self.duplicated),
                 "N/A Values": self.nan,
                 "Sampling Limit": self.cfg["sampling_limit"],
                 "Analyzed Samples": self.analyzed_samples,
@@ -277,7 +302,8 @@ if __name__ == "__main__":
         try:
             output_file = input_data["outputDir"]+"/"+"report-"+input_data["taskName"]+"-"+str(seconds)+".csv"
             with open(output_file, "w") as log_file:
-                pprint(dict(report), log_file)
+                #pprint(dict(report), log_file)
+                json.dump(report, log_file, cls=NumpyEncoder)
         except Exception as e:
             raise ValueError("Error with output file. Wrong path or enough privileges.")
     # run 3rd party server

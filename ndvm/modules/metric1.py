@@ -142,6 +142,7 @@ class Redundancy(AbstractMetric):
                 "XGB": XGBClassifier(eval_metric="logloss"),
             }
 
+        #print("input data", self.X_1, self.y_1)
         # Find max score in parallel
         pool = mp.Pool(len(self.clfs_set))
         pool.starmap_async(self.eval_dataset, [(self.X_1, self.y_1, 0.9, clfs) for clfs in self.clfs_set.items()], callback=self.maximal_score)
