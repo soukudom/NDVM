@@ -19,6 +19,7 @@ import argparse
 import sys
 import paramiko
 import yaml
+import toml
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -52,6 +53,8 @@ class dataset_metrics:
         self._metrics = []
         self.scores = {}
         self.verbose = 0
+        self.filtered_label = 0
+        self.label_list = {}
 
         with open(sourceDir+"/"+filename, "r") as stream:
             try:
@@ -102,13 +105,15 @@ class dataset_metrics:
         ## Get labels
         for item in df_dataset[label].value_counts().index.tolist():
             self.labels.append(item)
+        for key,val in df_dataset[label].value_counts().items():
+            self.label_list[key] = val
+
         ## Get amount of features
         self.features = len(df_dataset.drop(columns=[label]).columns)
         ## Get list of features
         self.feature_list = dict(zip(df_dataset.columns, [''] * len(df_dataset.columns)))
         ## Get amount of duplicated samples
         self.duplicated = len(df_dataset[df_dataset.duplicated])
-        #self.duplicated = 10
         ### print duplicated rows
         if self.verbose >= 2 & self.duplicated > 0:
             print("Duplicated rows (Note: index is +1)")
@@ -146,10 +151,18 @@ class dataset_metrics:
         df_dataset.reset_index(inplace=True)
         df_dataset = df_dataset.drop(columns=['index'])
 
-        n = 10
+        # Filter classes with samples less than limit
+        initial_state = len(df_dataset[label].value_counts())
         value_counts = df_dataset[label].value_counts()
-        frequent_categories = value_counts[value_counts > n].index
+        frequent_categories = value_counts[value_counts > self.cfg["min_sample_limit"] ].index
         df_dataset = df_dataset[df_dataset[label].isin(frequent_categories)]
+        after_state = len(df_dataset[label].value_counts())
+        if initial_state != after_state:
+            print("initial",initial_state,"after",after_state)
+            self.filtered_label = initial_state - after_state
+        df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
+        df_dataset.reset_index(inplace=True)
+        df_dataset = df_dataset.drop(columns=['index'])
 
         # Advanced metrics
         for metric in self._metrics:
@@ -159,7 +172,81 @@ class dataset_metrics:
             score = mx.run_evaluation()
             self.scores[mx.get_name()] = score
         
-            
+    def get_katoda_report(self):
+        """
+            Get report for Katoda
+        """
+        report = {}
+        insights = " The dataset has {} small classes, {} duplicated sampoles, {} nan value".format(self.filtered_label,self.duplicated, self.nan)
+        for key,item in self.scores.items():
+            report[key] = item
+        # validate metrics
+        try:
+            keys = "Association", "Redundancy", "Similarity"
+            for key in keys:
+                self.scores[key]
+        except Exception as e:
+            self.scores[key] = ""
+
+        try:
+            self.scores["Association"]["Max Clf Score"]
+        except Exception as e:
+            self.scores["Association"] = {"Max Clf Score": ""}
+        report = {
+            "collection_workflow":{
+                "data_collection_tool":"",
+                "data_collection_year":"",
+                "feature_extraction_tool_info":"Tool that converts dataset to feature dataset. If any.",
+                "feature_extraction_tool":"",
+                "feature_extraction_tool_description":"",
+                "capture_config_parameters_info":"specific parameters that were used to capture dataset or feature dataset",
+                "capture_config_parameters":"",
+                "real_dataset_info":"Source of the dataset. E.g., real environment, testbed or generated.",
+                "real_dataset":"",
+                "annotation_info":"Description of the dataset annotation. E.g., manual, automatic",
+                "annotation":"",      
+            },
+            "generic_info":{
+                "classes": str(self.classes), 
+                "features": str(self.features), 
+                "f1-score_info":"F1-score calculated based on NDVM tool [https://github.com/soukudom/NDVM]", 
+                "f1-score": str(self.scores["Association"]["Max Clf Score"]), 
+                "performance_metric_info":"Perfomance metric defined by the author. Please define full specification e.g., F1-weighted", 
+                "performance_metric_name":"", 
+                "performance_metric_value":"", 
+                "label_info":"Name of the field with label. In case this is unsupervised dataset, type None", 
+                "label":"", 
+                "key_observations_info":"List of known errors, drifts, limits, ... of the dataset", 
+                "key_observations":"* "+insights, 
+                "dataset_organization_info":"Structure of the dataset. E.g., per day, per capture, per device", 
+                "dataset_organization":"", 
+                "dataset_application_info":"Where the dataset has been already applied.", 
+                "dataset_application":""" """, 
+                "dataset_organization_description":"", 
+                "dataset_documentation_info":"How to get started with the dataset. Ideally add example notebook.", 
+                "dataset_documentation":""" """, 
+                "per_class_data": str(self.label_list), 
+                "per_feature_data": str(self.feature_list), 
+            },
+            "dataset_drift_analysis":{
+
+            },
+            "advanced_metrics":{
+                "description":"", 
+                "perqoda_permutation_slope": str(self.scores["Association"]["Association"]), 
+                "p_value_status": str(self.scores["Association"]["P-value status"]), 
+                "redundancy": str(self.scores["Redundancy"]), 
+                "similarity": str(self.scores["Similarity"]["metric"]), 
+                "advanced_metrics_workflow":"dataset-metrics.json",
+            },
+
+            "dataset_comparison":{
+                "description": """ """
+            }
+
+        }
+        return report
+
     def get_report(self):
         """
             Get dataset report
@@ -306,6 +393,8 @@ if __name__ == "__main__":
                 json.dump(report, log_file, cls=NumpyEncoder)
         except Exception as e:
             raise ValueError("Error with output file. Wrong path or enough privileges.")
+        with open('toml-report.toml', 'w') as f:
+            toml.dump(dm.get_katoda_report(), f)
     # run 3rd party server
     else:
         tmp_flag = False
