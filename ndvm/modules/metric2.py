@@ -28,6 +28,7 @@ class Association(AbstractMetric):
         self.label = label
         self.datasets = None
         self.clfs = ["RF", "DT", "XGB"]
+        #self.clfs = ["DT"]
         self.clfs_ver1 = []
         self.clfs_ver2 = {}
         self.ev = None
@@ -100,13 +101,13 @@ class Association(AbstractMetric):
 
         else:
             clfs_pool = {
-                "KNN": KNeighborsClassifier(),
+                #"KNN": KNeighborsClassifier(),
                 "DT": DecisionTreeClassifier(),
                 "RF": RandomForestClassifier(),
-                "MLP": MLPClassifier(
-                    hidden_layer_sizes=(80, 100), activation="relu", batch_size=20, max_iter=200, verbose=0
-                ),
-                "AB": AdaBoostClassifier(),
+                #"MLP": MLPClassifier(
+                #    hidden_layer_sizes=(80, 100), activation="relu", batch_size=20, max_iter=200, verbose=0
+                #),
+                #"AB": AdaBoostClassifier(),
                 "XGB": XGBClassifier(eval_metric="logloss")
             }
 
@@ -231,11 +232,13 @@ class Association(AbstractMetric):
                             comparison = self.y1 == y1P
 
                             if not comparison.all() or t > 3:
-                                if self.verbose >= 1:
+                                if self.verbose >= 1 and t > 3:
                                     print("Too many permutations with the same result. Skipping this iteration...")
                                     print("Note: This usually hapends for small or suspicious datasets.")
                                 break
                             t += 1
+                            if self.verbose >= 1:
+                                print("Permutation got the same result. Generation new one. Attempt: {}".format(t))
 
                         self.datasetsP = {"all": (self.X1, y1P)}
 
@@ -292,11 +295,13 @@ class Association(AbstractMetric):
                         comparison = self.y1 == y1P
 
                         if not comparison.all() or t > 3:
-                            if self.verbose >= 2:
+                            if self.verbose >= 2 and t > 3:
                                 print("Too many permutations with the same result. Skipping this iteration...")
                                 print("Note: This usually hapends for small or suspicious datasets.")
                             break
                         t += 1
+                        if self.verbose >= 1:
+                            print("Permutation got the same result. Generation new one. Attempt: {}".format(t))
 
                     self.datasetsP = {"all": (self.X1, y1P)}
 
@@ -386,8 +391,8 @@ class Association(AbstractMetric):
                 "- Final Metric:",
                 (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25,
             )
-        self.raw_slope = np.max(abs(slopes))
-        self.raw_auc = auc(cor, max_perm)
+        self.raw_slope = [np.max(abs(slopes)), names[maxind]]
+        self.raw_auc = [auc(cor, max_perm), names[maxind_auc]]
         self.auc_score = (0.5 - auc(cor, max_perm) / max_perm[-1]) / 0.25
         self.max_clf_metric_score = max_perm[-1]
 
@@ -446,7 +451,7 @@ class Association(AbstractMetric):
         # score = {"qod":status,"slope":np.max(abs(slopes))}
         # self.auc_score = (0.5-auc(cor,max_perm)/max_perm[-1])/0.125
         score = self.auc_score
-        final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status, "Raw Slope":self.raw_slope, "Raw AUC":self.raw_auc}
+        final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status, "P-value table":str(pv),"Raw Slope":str(self.raw_slope), "Raw AUC":str(self.raw_auc)}
         return final_result  # {"Metric":score, "P-value":pv}
 
     def save_results(self):

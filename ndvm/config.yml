@@ -1,11 +1,12 @@
 ## Select what test you want to run
 metric_config: [
-    'modules.metric1.Redundancy',
-    'modules.metric2.Association',
-    'modules.metric3.Similarity',
+        'modules.metric1.Redundancy',
+        'modules.metric2.Association',
+        'modules.metric3.Similarity',
 ]
-sampling_limit: 5000
+sampling_limit: 10000
+min_sample_limit: 10
 delimiter: ","
 delete_nan: True
 delete_duplicated: True
-verbose: 1
+verbose: 5

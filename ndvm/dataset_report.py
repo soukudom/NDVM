@@ -376,6 +376,7 @@ if __name__ == "__main__":
 
     # run metacentrum
     if input_data["server"] == "metacentrum":
+        # TODO finalize metacentrum execution
         pass
     # run locally
     elif input_data["server"] == "localhost":
@@ -392,7 +393,9 @@ if __name__ == "__main__":
                 #pprint(dict(report), log_file)
                 json.dump(report, log_file, cls=NumpyEncoder)
         except Exception as e:
+            print("error e")
             raise ValueError("Error with output file. Wrong path or enough privileges.")
+        # TODO add this option also for other running methods
         with open('toml-report.toml', 'w') as f:
             toml.dump(dm.get_katoda_report(), f)
     # run 3rd party server
