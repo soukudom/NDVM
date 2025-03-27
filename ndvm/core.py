@@ -12,5 +12,6 @@ class AbstractMetric(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_details(self):
+    def get_details(self, output_dir_metadata_base):
         raise NotImplementedError
+        

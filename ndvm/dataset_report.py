@@ -20,6 +20,7 @@ import sys
 import paramiko
 import yaml
 import toml
+import re
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -31,6 +32,94 @@ class NumpyEncoder(json.JSONEncoder):
             return obj.tolist()
         return super().default(obj)
 
+class CustomTOMLEncoder(toml.TomlEncoder):
+    """
+    Custom TOML encoder that:
+    1. Converts string values from single quotes to triple double quotes
+    2. Formats dictionary values with specific formatting style:
+       - Keys and values in double quotes
+       - Each key-value pair on a new line
+       - No trailing comma for the last item
+    """
+    
+    def __init__(self, _dict=dict, preserve=False):
+        super().__init__(_dict, preserve)
+        self.dict_pattern = re.compile(r'{.*?}', re.DOTALL)
+    
+    def dump_value(self, v):
+        """Override dump_value to handle special formatting for strings and dicts"""
+        # Handle strings - convert single quotes to triple double quotes
+        if isinstance(v, str):
+            # Check if the string contains a dictionary representation
+            if self.dict_pattern.search(v):
+                return self._format_dict_string(v)
+            # Use triple double quotes for all string values
+            return '""" ' + v + ' """'
+        
+        # Handle dictionaries
+        elif isinstance(v, dict):
+            return self._format_dict(v)
+        
+        # For other types, use the parent class implementation
+        return super().dump_value(v)
+    
+    def _format_dict(self, d):
+        """Format a dictionary according to the specified style"""
+        if not d:
+            return '"""{  }"""'
+        
+        formatted = '{\n'
+        items = list(d.items())
+        
+        for i, (key, value) in enumerate(items):
+            # Ensure values are strings
+            str_value = str(value)
+            
+            formatted += f'  "{key}": "{str_value}"'
+            # Don't add comma after the last item
+            if i < len(items) - 1:
+                formatted += ','
+            formatted += '\n'
+        
+        formatted += '}'
+        
+        # Wrap in triple double quotes
+        return f'"""{formatted}"""'
+    
+    def _format_dict_string(self, s):
+        """Process a string that contains a dictionary representation"""
+        try:
+            # Find the dictionary part in the string
+            dict_match = self.dict_pattern.search(s)
+            if not dict_match:
+                return f'"""{s}"""'
+            
+            dict_str = dict_match.group(0)
+            
+            # Try to parse as a dictionary
+            try:
+                # First try as JSON
+                d = json.loads(dict_str.replace("'", '"'))
+            except json.JSONDecodeError:
+                # If JSON fails, try to eval as Python dict with some cleanup
+                cleaned = dict_str.replace("'", '"')
+                # Replace single-quoted keys with double-quoted keys
+                cleaned = re.sub(r'([{,]\s*)(\w+):', r'\1"\2":', cleaned)
+                try:
+                    d = json.loads(cleaned)
+                except:
+                    # If all parsing fails, just return the string wrapped in triple quotes
+                    return f'"""{s}"""'
+            
+            # Format the dictionary
+            formatted_dict = self._format_dict(d)
+            
+            # Replace the original dictionary string with the formatted version
+            return f'"""{s.replace(dict_str, formatted_dict[3:-3])}"""'
+            
+        except Exception:
+            # If any error occurs, return the original string wrapped in triple quotes
+            return f'"""{s}"""'
 
 # TODO
 # - add more hidden data values that are used for metric calculation (f1 score, ..) -> good for metrics troubleshooting
@@ -76,7 +165,7 @@ class dataset_metrics:
             metric = self.create_metric(metric_path)
             self._metrics.append(metric)
 
-    def eval_metrics(self, dataset, label):
+    def eval_metrics(self, dataset, label, output_dir_metadata_base):
         """
             Main function to evaluate dataset metrics
         """
@@ -115,7 +204,7 @@ class dataset_metrics:
         ## Get amount of duplicated samples
         self.duplicated = len(df_dataset[df_dataset.duplicated])
         ### print duplicated rows
-        if self.verbose >= 2 & self.duplicated > 0:
+        if self.verbose >= 5 & self.duplicated > 0:
             print("Duplicated rows (Note: index is +1)")
             print(df_dataset[df_dataset.duplicated()].to_string(header=False))
         if self.cfg["delete_duplicated"]:
@@ -145,20 +234,20 @@ class dataset_metrics:
                 class_tmp = df_dataset[df_dataset[label]==key]
             dataset_merge = pd.concat([dataset_merge,class_tmp])
             
-        # Udelat merge
+        # Finish merge of the sampled dataset
         df_dataset = pd.DataFrame(dataset_merge)
         df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
         df_dataset.reset_index(inplace=True)
         df_dataset = df_dataset.drop(columns=['index'])
 
-        # Filter classes with samples less than limit
+        # Filter classes with samples less than minimal limit
         initial_state = len(df_dataset[label].value_counts())
         value_counts = df_dataset[label].value_counts()
         frequent_categories = value_counts[value_counts > self.cfg["min_sample_limit"] ].index
         df_dataset = df_dataset[df_dataset[label].isin(frequent_categories)]
         after_state = len(df_dataset[label].value_counts())
         if initial_state != after_state:
-            print("initial",initial_state,"after",after_state)
+            # print("initial",initial_state,"after",after_state)
             self.filtered_label = initial_state - after_state
         df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
         df_dataset.reset_index(inplace=True)
@@ -171,6 +260,7 @@ class dataset_metrics:
                 print("Running metric called",mx.get_name())
             score = mx.run_evaluation()
             self.scores[mx.get_name()] = score
+            mx.get_details(output_dir_metadata_base)
         
     def get_katoda_report(self):
         """
@@ -204,7 +294,7 @@ class dataset_metrics:
                 "real_dataset_info":"Source of the dataset. E.g., real environment, testbed or generated.",
                 "real_dataset":"",
                 "annotation_info":"Description of the dataset annotation. E.g., manual, automatic",
-                "annotation":"",      
+                "annotation":""
             },
             "generic_info":{
                 "classes": str(self.classes), 
@@ -217,16 +307,23 @@ class dataset_metrics:
                 "label_info":"Name of the field with label. In case this is unsupervised dataset, type None", 
                 "label":"", 
                 "key_observations_info":"List of known errors, drifts, limits, ... of the dataset", 
-                "key_observations":"* "+insights, 
+                "key_observations":"""* """+insights, 
+                "known_issues_info": """Description of indentified issues in the dataset""",
+                "known_issues": """ """,
+                "key_observations_info": "List of known errors, drifts, limits, ... of the dataset",
+                "key_observations": """ """,
                 "dataset_organization_info":"Structure of the dataset. E.g., per day, per capture, per device", 
                 "dataset_organization":"", 
-                "dataset_application_info":"Where the dataset has been already applied.", 
-                "dataset_application":""" """, 
-                "dataset_organization_description":"", 
+                "dataset_organization_description_info": "Description of the content of the organization. Is there any metadata?",
+                "dataset_organization_description": """ """,
                 "dataset_documentation_info":"How to get started with the dataset. Ideally add example notebook.", 
                 "dataset_documentation":""" """, 
+                "used_dataset_info": "Script to get dataset for provided analysis",
+                "used_dataset": "get-dataset.py",
+                "dataset_application_info": "Where the dataset has been already applied.", 
+                "dataset_application": """ """, 
                 "per_class_data": str(self.label_list), 
-                "per_feature_data": str(self.feature_list), 
+                "per_feature_data": str(self.feature_list)
             },
             "dataset_drift_analysis":{
 
@@ -237,11 +334,13 @@ class dataset_metrics:
                 "p_value_status": str(self.scores["Association"]["P-value status"]), 
                 "redundancy": str(self.scores["Redundancy"]), 
                 "similarity": str(self.scores["Similarity"]["metric"]), 
-                "advanced_metrics_workflow":"dataset-metrics.json",
+                "advanced_metrics_workflow":"dataset-metrics.json"
             },
 
             "dataset_comparison":{
-                "description": """ """
+                "description": "ML model comparison for this dataset",
+                "use_case": """ """,
+                "similar_dataset": """ """
             }
 
         }
@@ -385,19 +484,20 @@ if __name__ == "__main__":
         if dm.verbose >= 1:
             print("Running Dataset Report Evaluation")
         dm.load_metrics()
-        dm.eval_metrics(input_data["dataset"],input_data["label"])
+        output_dir_metadata_base = input_data["outputDir"]+"/"+"report-"+input_data["taskName"]+"-"+str(seconds)
+        dm.eval_metrics(input_data["dataset"],input_data["label"],output_dir_metadata_base)
         report = dm.get_report()
         try:
             output_file = input_data["outputDir"]+"/"+"report-"+input_data["taskName"]+"-"+str(seconds)+".csv"
             with open(output_file, "w") as log_file:
-                #pprint(dict(report), log_file)
                 json.dump(report, log_file, cls=NumpyEncoder)
         except Exception as e:
             print("error e")
             raise ValueError("Error with output file. Wrong path or enough privileges.")
         # TODO add this option also for other running methods
-        with open('toml-report.toml', 'w') as f:
-            toml.dump(dm.get_katoda_report(), f)
+        output_file_katoda = input_data["outputDir"]+"/"+"report-katoda-"+input_data["taskName"]+"-"+str(seconds)+".toml"
+        with open(output_file_katoda, 'w') as f:
+            toml.dump(dm.get_katoda_report(), f, encoder=CustomTOMLEncoder())
     # run 3rd party server
     else:
         tmp_flag = False

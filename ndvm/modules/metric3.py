@@ -13,6 +13,9 @@ from sklearn.preprocessing import MinMaxScaler
 from torch import nn
 from torch.nn import functional as F
 from core import AbstractMetric
+import os
+import pickle
+import sys
 
 class Similarity(AbstractMetric):
     def __init__(self, dataset, label, multiclass, verbose):
@@ -24,11 +27,30 @@ class Similarity(AbstractMetric):
     def get_name(self):
         return "Similarity"
     
-    def get_details(self):
-        pass
+    def get_details(self, output_dir_metadata_base):
+        try:
+            os.mkdir(output_dir_metadata_base+"-metric3")
+            self.save_results(output_dir_metadata_base+"-metric3")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def run_evaluation(self):
         return self.class_similarity(self.dataset, self.dataset.drop(columns=[self.label]).columns, self.label)
+
+    def save_results(self,outputdir):
+        """
+            Pickle object with permuted evaluation data
+        """
+        try:
+            with open(outputdir + "/metric3.obj", "wb") as f:
+                pickle.dump(self, f)
+        except Exception as err:
+            print()
+            print("Error: Failed to save the metric3 object in " + outputdir + " directory.")
+            print("Full Error:", err)
+            sys.exit(3)
+        if self.verbose >= 1:
+            print("The metric3 object saved to pickle file - " + outputdir + "/metric3.obj")
 
     def class_similarity(self, df, feature_cols, label_col, base_class=None, max_epochs=50):
         """Calculates class similarity metric (M_3).

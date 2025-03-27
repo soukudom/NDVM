@@ -38,10 +38,10 @@ class Association(AbstractMetric):
         self.a = None
         self.eval_metrics = ["F1"]
         self.metrics = {}
-        self.perc = [50, 40, 30, 20, 10, 1]
+        self.perc = [10, 1] #[50, 40, 30, 20, 10, 1]
         self.perm = None
         self.corr = None
-        self.nperm = 100
+        self.nperm = 10#100
         self.output = None
         self.cores = 1
         self.verbose = verbose
@@ -51,8 +51,12 @@ class Association(AbstractMetric):
         self.raw_slope = 0
         self.raw_auc = 0
 
-    def get_details(self):
-        pass
+    def get_details(self, output_dir_metadata_base):
+        try:
+            os.mkdir(output_dir_metadata_base+"-metric2")
+            self.save_results(output_dir_metadata_base+"-metric2")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def get_name(self):
         return "Association"
@@ -454,20 +458,20 @@ class Association(AbstractMetric):
         final_result = {"Association":score,"Max Clf Score":self.max_clf_metric_score,"P-value status":status, "P-value table":str(pv),"Raw Slope":str(self.raw_slope), "Raw AUC":str(self.raw_auc)}
         return final_result  # {"Metric":score, "P-value":pv}
 
-    def save_results(self):
+    def save_results(self,outputdir):
         """
-            Picle object with permuted evaluation data
+            Pickle object with permuted evaluation data
         """
         try:
-            with open(self.output + "/perqoda.obj", "wb") as f:
+            with open(outputdir + "/metric2.obj", "wb") as f:
                 pickle.dump(self, f)
         except Exception as err:
             print()
-            print("Error: Failed to save PerQoDA object in " + self.output + " directory.")
+            print("Error: Failed to save PerQoDA object in " + outputdir + " directory.")
             print("Full Error:", err)
             sys.exit(3)
         if self.verbose >= 1:
-            print("PerQoDA object saved to pickle file - " + self.output + "/perqoda.obj")
+            print("PerQoDA object saved to pickle file - " + outputdir + "/perqoda.obj")
 
     def run_evaluation(self):
         self.load_dataset()

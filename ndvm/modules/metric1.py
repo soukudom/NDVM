@@ -17,7 +17,12 @@ from sklearn.model_selection import train_test_split
 import multiprocessing as mp
 from multiprocessing import Process
 from core import AbstractMetric
+import os
+import pickle
+import sys
 
+# TODO don't store dataset in the variable
+# TODO store results per model as metadata instead of all values
 class Redundancy(AbstractMetric):
     def __init__(self, dataset, label, multiclass, verbose):
         self.runs = 5  # number of iterations
@@ -32,12 +37,17 @@ class Redundancy(AbstractMetric):
         self.dataset = dataset
         self.label = label
         self.verbose = verbose
+        self.redundancy_metadata = {}
 
     def get_name(self):
         return "Redundancy"
     
-    def get_details(self):
-        pass
+    def get_details(self, output_dir_metadata_base):
+        try:
+            os.mkdir(output_dir_metadata_base+"-metric1")
+            self.save_results(output_dir_metadata_base+"-metric1")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def eval_dataset(self, X_1, y_1, frac, clfs):
         """
@@ -56,11 +66,26 @@ class Redundancy(AbstractMetric):
             tmp_results[name][i].append(metrics.f1_score(y_test_sub, pred,average="weighted"))
         return tmp_results
 
+    def save_results(self,outputdir):
+        """
+            Pickle object with permuted evaluation data
+        """
+        try:
+            with open(outputdir + "/metric1.obj", "wb") as f:
+                pickle.dump(self, f)
+        except Exception as err:
+            print()
+            print("Error: Failed to save the metric1 object in " + outputdir + " directory.")
+            print("Full Error:", err)
+            sys.exit(3)
+        if self.verbose >= 1:
+            print("The metric1 object saved to pickle file - " + outputdir + "/metric1.obj")
+
     def calculate_redundancy(self, X_1, y_1, max_score, clfs):
         """
             Calculate redundancy score for selected classificators
         """
-
+      
         limit = max_score * self.alfa
         low = 0.0
         high = 1.0
@@ -75,6 +100,13 @@ class Redundancy(AbstractMetric):
             tmp_low = []
             name, clf = clfs
             tmp = []
+
+            # Store metadata for visualization
+            try:
+                self.redundancy_metadata[name].append(tmp_score)
+            except Exception as e:
+                self.redundancy_metadata[name] = [tmp_score]
+
             if self.verbose > 0:
                 print("Testing", name, max_score, high, low)
             for item in range(self.runs):
@@ -142,7 +174,6 @@ class Redundancy(AbstractMetric):
                 "XGB": XGBClassifier(eval_metric="logloss"),
             }
 
-        #print("input data", self.X_1, self.y_1)
         # Find max score in parallel
         pool = mp.Pool(len(self.clfs_set))
         pool.starmap_async(self.eval_dataset, [(self.X_1, self.y_1, 0.9, clfs) for clfs in self.clfs_set.items()], callback=self.maximal_score)
