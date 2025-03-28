@@ -187,10 +187,8 @@ class dataset_metrics:
         #    raise ValueError('Error: Mismatch between input number of classes and detected.')
 
         ## Get amount of samples
-        #self.samples = dict(df_dataset[label].value_counts())
         self.samples = {str(k): v for k, v in dict(df_dataset[label].value_counts()).items()}
-        #for item in df_dataset[label].value_counts():
-        #    self.samples.append(item)
+
         ## Get labels
         for item in df_dataset[label].value_counts().index.tolist():
             self.labels.append(item)
@@ -226,10 +224,8 @@ class dataset_metrics:
             if item > self.cfg["sampling_limit"]:
                 df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
                 class_tmp = df_dataset[df_dataset[label]==key][:self.cfg["sampling_limit"]]
-                #self.analyzed_samples.append(item)
-                self.analyzed_samples[str(key)] = item
+                self.analyzed_samples[str(key)] = self.cfg["sampling_limit"]
             else:
-                #self.analyzed_samples.append(item)
                 self.analyzed_samples[str(key)] = item
                 class_tmp = df_dataset[df_dataset[label]==key]
             dataset_merge = pd.concat([dataset_merge,class_tmp])
@@ -247,12 +243,11 @@ class dataset_metrics:
         df_dataset = df_dataset[df_dataset[label].isin(frequent_categories)]
         after_state = len(df_dataset[label].value_counts())
         if initial_state != after_state:
-            # print("initial",initial_state,"after",after_state)
             self.filtered_label = initial_state - after_state
         df_dataset = df_dataset.sample(frac=1).reset_index(drop=True)
         df_dataset.reset_index(inplace=True)
         df_dataset = df_dataset.drop(columns=['index'])
-
+       
         # Advanced metrics
         for metric in self._metrics:
             mx = metric(df_dataset, label, self.multiclass, self.cfg["verbose"])

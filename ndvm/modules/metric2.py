@@ -27,8 +27,7 @@ class Association(AbstractMetric):
         self.raw_dataset = dataset
         self.label = label
         self.datasets = None
-        self.clfs = ["RF", "DT", "XGB"]
-        #self.clfs = ["DT"]
+        self.clfs = ["DT", "RF", "XGB"]
         self.clfs_ver1 = []
         self.clfs_ver2 = {}
         self.ev = None
@@ -38,10 +37,10 @@ class Association(AbstractMetric):
         self.a = None
         self.eval_metrics = ["F1"]
         self.metrics = {}
-        self.perc = [10, 1] #[50, 40, 30, 20, 10, 1]
+        self.perc = [50, 30, 10, 1]
         self.perm = None
         self.corr = None
-        self.nperm = 10#100
+        self.nperm = 2#100
         self.output = None
         self.cores = 1
         self.verbose = verbose

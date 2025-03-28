@@ -21,8 +21,6 @@ import os
 import pickle
 import sys
 
-# TODO don't store dataset in the variable
-# TODO store results per model as metadata instead of all values
 class Redundancy(AbstractMetric):
     def __init__(self, dataset, label, multiclass, verbose):
         self.runs = 5  # number of iterations
@@ -91,6 +89,7 @@ class Redundancy(AbstractMetric):
         high = 1.0
         mid = 0
         tmp_redundancy = 0.9
+        redundancy_metadata = {}
 
         # Run divide and conquer finding of dataset redundancy
         while high - low > self.alfa:
@@ -103,9 +102,12 @@ class Redundancy(AbstractMetric):
 
             # Store metadata for visualization
             try:
-                self.redundancy_metadata[name].append(tmp_score)
+                redundancy_metadata[name][str(tmp_redundancy)].append(tmp_score[name][0])
             except Exception as e:
-                self.redundancy_metadata[name] = [tmp_score]
+                try:
+                    redundancy_metadata[name][tmp_redundancy] = tmp_score[name] 
+                except Exception as e:
+                    redundancy_metadata[name] = {tmp_redundancy: tmp_score[name]}
 
             if self.verbose > 0:
                 print("Testing", name, max_score, high, low)
@@ -123,7 +125,8 @@ class Redundancy(AbstractMetric):
                 high = tmp_redundancy
             else:
                 low = tmp_redundancy
-        return 1 - tmp_redundancy
+        
+        return {"score": 1 - tmp_redundancy, "metadata": redundancy_metadata}
 
     def prepare_dataset(self):#, dataset, label):
         """
@@ -141,7 +144,16 @@ class Redundancy(AbstractMetric):
         """
             Get maximal redundancy across all models
         """
-        self.ds_redundancy = max(result)
+        print("Got", result)
+        #print(int(result["score"]))
+
+        self.ds_redundancy = max([item['score'] for item in result]) #max([result[0]["score"]])
+        self.redundancy_metadata = [item['metadata'] for item in result] #result[0]["metadata"]
+
+        #self.ds_redundancy = max([result[0]["score"]])
+        #self.redundancy_metadata = result[0]["metadata"]
+        #print("Got redundancy", self.ds_redundancy)
+        #print("Got metadata", self.redundancy_metadata)
         return self.ds_redundancy
 
     def maximal_score(self, result):
