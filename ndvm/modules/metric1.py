@@ -144,16 +144,9 @@ class Redundancy(AbstractMetric):
         """
             Get maximal redundancy across all models
         """
-        print("Got", result)
-        #print(int(result["score"]))
 
-        self.ds_redundancy = max([item['score'] for item in result]) #max([result[0]["score"]])
-        self.redundancy_metadata = [item['metadata'] for item in result] #result[0]["metadata"]
-
-        #self.ds_redundancy = max([result[0]["score"]])
-        #self.redundancy_metadata = result[0]["metadata"]
-        #print("Got redundancy", self.ds_redundancy)
-        #print("Got metadata", self.redundancy_metadata)
+        self.ds_redundancy = max([item['score'] for item in result]) 
+        self.redundancy_metadata = [item['metadata'] for item in result] 
         return self.ds_redundancy
 
     def maximal_score(self, result):
@@ -171,7 +164,7 @@ class Redundancy(AbstractMetric):
             Main method for computing the ds_redundancy metric
         """
         # Prepare dataset to requred format
-        self.prepare_dataset()#(self.dataset, self.label)
+        self.prepare_dataset()
 
         if self.MULTICLASS:
             self.clfs_set = {

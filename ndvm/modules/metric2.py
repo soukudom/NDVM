@@ -40,7 +40,7 @@ class Association(AbstractMetric):
         self.perc = [50, 30, 10, 1]
         self.perm = None
         self.corr = None
-        self.nperm = 2#100
+        self.nperm = 100
         self.output = None
         self.cores = 1
         self.verbose = verbose
@@ -293,6 +293,7 @@ class Association(AbstractMetric):
 
                         y1P = np.copy(self.y1)
 
+                        y1P.flags["WRITEABLE"] = True
                         y1P[ind] = self.y1[indP]
 
                         comparison = self.y1 == y1P
